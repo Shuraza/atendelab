@@ -1,159 +1,69 @@
--- phpMyAdmin SQL Dump
--- version 5.2.1
--- https://www.phpmyadmin.net/
---
--- Host: 127.0.0.1
--- Tempo de geração: 16/06/2026 às 00:56
--- Versão do servidor: 10.4.32-MariaDB
--- Versão do PHP: 8.2.12
+-- 1. usuarios — adiciona atualizado_em (se ainda não existir)
+ALTER TABLE `usuarios`
+    ADD COLUMN `atualizado_em` TIMESTAMP NOT NULL
+        DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP;
 
-SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-START TRANSACTION;
-SET time_zone = "+00:00";
+-- 2. pessoas — adiciona colunas exigidas pelo fronted
+ALTER TABLE `pessoas`
+    MODIFY COLUMN `nome`      VARCHAR(150) NOT NULL,
+    MODIFY COLUMN `documento` VARCHAR(30)  NOT NULL,
+    ADD COLUMN `email`        VARCHAR(150) NOT NULL   AFTER `telefone`,
+    ADD COLUMN `curso`        VARCHAR(120)            AFTER `email`,
+    ADD COLUMN `periodo`      VARCHAR(20)             AFTER `curso`,
+    ADD COLUMN `observacoes`  TEXT                    AFTER `periodo`,
+    ADD COLUMN `status`       ENUM('ativo','inativo') NOT NULL DEFAULT 'ativo' AFTER `observacoes`,
+    ADD COLUMN `atualizado_em` TIMESTAMP NOT NULL
+        DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP;
 
+-- 3. tipos_atendimentos — adicioa status e atualizado_em
+ALTER TABLE `tipos_atendimentos`
+    ADD COLUMN `status` ENUM('ativo','inativo') NOT NULL DEFAULT 'ativo' AFTER `descricao`,
+    ADD COLUMN `atualizado_em` TIMESTAMP NOT NULL
+        DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP;
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
-
---
--- Banco de dados: `atendelab`
---
-
--- --------------------------------------------------------
-
---
--- Estrutura para tabela `atendimentos`
---
+-- 4. atendimetos — recria com estrutura completa
+--    (só execute DROP + CREATE se a tabela estiver vazia ou não existir)
+DROP TABLE IF EXISTS `atendimentos`;
 
 CREATE TABLE `atendimentos` (
-  `id` int(11) NOT NULL,
-  `descricao` text NOT NULL,
-  `data_atendimento` timestamp NOT NULL DEFAULT current_timestamp(),
-  `usuario_id` int(11) NOT NULL,
-  `pessoa_id` int(11) NOT NULL,
-  `tipo_atendimento_id` int(11) NOT NULL
+    `id`                  INT           NOT NULL AUTO_INCREMENT,
+    `pessoa_id`           INT           NOT NULL,
+    `tipo_atendimento_id` INT           NOT NULL,
+    `usuario_id`          INT           NOT NULL,
+    `descricao`           TEXT          NOT NULL,
+    `status`              ENUM('aberto','em_andamento','concluido')
+                                        NOT NULL DEFAULT 'aberto',
+    `data_atendimento`    DATE          NOT NULL,
+    `horario_atendimento` TIME          NOT NULL,
+    `observacao_final`    TEXT,
+    `criado_em`           TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `atualizado_em`       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                        ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    CONSTRAINT `fk_atendimentos_pessoa`
+        FOREIGN KEY (`pessoa_id`)           REFERENCES `pessoas`(`id`)           ON UPDATE CASCADE,
+    CONSTRAINT `fk_atendimentos_tipo`
+        FOREIGN KEY (`tipo_atendimento_id`) REFERENCES `tipos_atendimentos`(`id`) ON UPDATE CASCADE,
+    CONSTRAINT `fk_atendimentos_usuario`
+        FOREIGN KEY (`usuario_id`)          REFERENCES `usuarios`(`id`)          ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- --------------------------------------------------------
+-- 5. Dados iniciais — tipos de atendimento
+INSERT INTO `tipos_atendimentos` (`nome`, `descricao`, `status`) VALUES
+    ('Dúvida acadêmica',       'Dúvidas sobre disciplinas, conteúdos e atividades.', 'ativo'),
+    ('Orientação de atividade','Orientações sobre trabalhos, TCC e projetos.',        'ativo'),
+    ('Suporte técnico',        'Problemas com sistemas, equipamentos e acessos.',     'ativo'),
+    ('Matrícula e documentação','Solicitações de matrícula, declarações e históricos.','ativo'),
+    ('Acesso ao laboratório',  'Liberação de uso e agendamento de laboratórios.',    'ativo');
 
---
--- Estrutura para tabela `pessoas`
---
-
-CREATE TABLE `pessoas` (
-  `id` int(11) NOT NULL,
-  `nome` varchar(100) NOT NULL,
-  `documento` varchar(20) DEFAULT NULL,
-  `telefone` varchar(20) DEFAULT NULL,
-  `criado_em` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Estrutura para tabela `tipos_atendimentos`
---
-
-CREATE TABLE `tipos_atendimentos` (
-  `id` int(11) NOT NULL,
-  `nome` varchar(100) NOT NULL,
-  `descricao` text DEFAULT NULL,
-  `criado_em` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Estrutura para tabela `usuarios`
---
-
-CREATE TABLE `usuarios` (
-  `id` int(11) NOT NULL,
-  `nome` varchar(100) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `senha` varchar(255) NOT NULL,
-  `perfil` enum('admin','atendente') DEFAULT 'atendente',
-  `status` enum('ativo','inativo') DEFAULT 'ativo',
-  `criado_em` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Índices para tabelas despejadas
---
-
---
--- Índices de tabela `atendimentos`
---
-ALTER TABLE `atendimentos`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `fk_atendimentos_usuarios` (`usuario_id`),
-  ADD KEY `fk_atendimentos_pessoas` (`pessoa_id`),
-  ADD KEY `fk_atendimentos_tipos` (`tipo_atendimento_id`);
-
---
--- Índices de tabela `pessoas`
---
-ALTER TABLE `pessoas`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `documento` (`documento`);
-
---
--- Índices de tabela `tipos_atendimentos`
---
-ALTER TABLE `tipos_atendimentos`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `nome` (`nome`);
-
---
--- Índices de tabela `usuarios`
---
-ALTER TABLE `usuarios`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `email` (`email`);
-
---
--- AUTO_INCREMENT para tabelas despejadas
---
-
---
--- AUTO_INCREMENT de tabela `atendimentos`
---
-ALTER TABLE `atendimentos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT de tabela `pessoas`
---
-ALTER TABLE `pessoas`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT de tabela `tipos_atendimentos`
---
-ALTER TABLE `tipos_atendimentos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT de tabela `usuarios`
---
-ALTER TABLE `usuarios`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- Restrições para tabelas despejadas
---
-
---
--- Restrições para tabelas `atendimentos`
---
-ALTER TABLE `atendimentos`
-  ADD CONSTRAINT `fk_atendimentos_pessoas` FOREIGN KEY (`pessoa_id`) REFERENCES `pessoas` (`id`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_atendimentos_tipos` FOREIGN KEY (`tipo_atendimento_id`) REFERENCES `tipos_atendimentos` (`id`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_atendimentos_usuarios` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON UPDATE CASCADE;
-COMMIT;
-
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+-- 6. Dados iniciais — pessoas fictícias para testes
+INSERT INTO `pessoas`
+    (`nome`, `documento`, `telefone`, `email`, `curso`, `periodo`, `status`)
+VALUES
+    ('João da Silva',    '123.456.789-00', '(47) 99999-0001',
+     'joao.silva@exemplo.com',    'Engenharia de Software', '5º', 'ativo'),
+    ('Ana Carolina',     '987.654.321-00', '(47) 99999-0002',
+     'ana.carolina@exemplo.com',  'Sistemas de Informação', '7º', 'ativo');

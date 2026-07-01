@@ -68,11 +68,25 @@ class AtendimentosController
         $this->json($atendimento);
     }
 
+    /**
+     * O usuário responsável pelo atendimento vem da sessão (já autenticado),
+     * nunca de um campo livre no formulário. Mantém compatibilidade com
+     * chamadas via cliente HTTP que ainda informem usuario_id no corpo.
+     */
+    private function usuarioResponsavel(): int
+    {
+        if (isset($_SESSION['usuario']['id'])) {
+            return (int) $_SESSION['usuario']['id'];
+        }
+
+        return (int) filter_var($_POST['usuario_id'] ?? null, FILTER_VALIDATE_INT);
+    }
+
     public function criar(): void
     {
         $pessoaId  = filter_var($_POST['pessoa_id']           ?? null, FILTER_VALIDATE_INT);
         $tipoId    = filter_var($_POST['tipo_atendimento_id'] ?? null, FILTER_VALIDATE_INT);
-        $usuarioId = filter_var($_POST['usuario_id']          ?? null, FILTER_VALIDATE_INT);
+        $usuarioId = $this->usuarioResponsavel();
         $descricao = trim($_POST['descricao']                 ?? '');
         $data      = $_POST['data_atendimento']               ?? '';
         $horario   = $_POST['horario_atendimento']            ?? '';

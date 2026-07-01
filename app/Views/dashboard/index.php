@@ -1,24 +1,114 @@
-<!DOCTYPE html>
-<html lang="pt-br">
+<?php
+$tituloPagina = 'Dashboard';
+require __DIR__ . '/../layouts/header.php';
+?>
 
-<head>
-    <meta charset="UTF-8">
-    <title>AtendeLab - Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Dashboard</h1>
+        <p class="text-secondary mb-0">Resumo simples para validar a integração com o backend.</p>
+    </div>
+</div>
 
-<body class="bg-light">
-    <div class="container mt-5">
-        <div class="card p-5 shadow">
-            <h2>Bem-vindo, <?= htmlspecialchars($usuarioLogado['nome']); ?>!</h2>
-            <p class="text-muted">Perfil técnico ativo: <strong class="badge bg-secondary"><?= htmlspecialchars($usuarioLogado['perfil']); ?></strong></p>
-            <hr>
-            <div class="d-flex gap-3 mt-4">
-                <a href="/atendelab/public/?controller=usuarios&action=listar" class="btn btn-info text-white" target="_blank">Testar rota protegida de usuários</a>
-                <a href="/atendelab/public/?controller=auth&action=logout" class="btn btn-danger">Sair (Logout)</a>
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-secondary small">Pessoas cadastradas</div>
+                <div class="display-6 fw-semibold" id="totalPessoas">—</div>
             </div>
         </div>
     </div>
-</body>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-secondary small">Tipos de atendimento</div>
+                <div class="display-6 fw-semibold" id="totalTipos">—</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-secondary small">Atendimentos registrados</div>
+                <div class="display-6 fw-semibold" id="totalAtendimentos">—</div>
+            </div>
+        </div>
+    </div>
+</div>
 
-</html>
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <h2 class="h5">Acesso rápido</h2>
+        <p class="text-secondary">Use os módulos abaixo para cadastrar e consultar dados reais do banco.</p>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-success" href="<?= $baseUrl ?>?controller=frontend&action=pessoas">Gerenciar pessoas</a>
+            <a class="btn btn-outline-success" href="<?= $baseUrl ?>?controller=frontend&action=tipos">Gerenciar tipos</a>
+            <a class="btn btn-outline-success" href="<?= $baseUrl ?>?controller=frontend&action=atendimentos">Registrar atendimentos</a>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <h2 class="h5">Últimos atendimentos</h2>
+        <p class="text-secondary">Consumido de <code>?controller=dashboard&amp;action=resumo</code>.</p>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Pessoa</th>
+                        <th>Tipo</th>
+                        <th>Data</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaRecentes">
+                    <tr><td colspan="4" class="text-center py-3">Carregando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const targets = {
+        pessoas: document.getElementById('totalPessoas'),
+        tipos: document.getElementById('totalTipos'),
+        atendimentos: document.getElementById('totalAtendimentos')
+    };
+
+    for (const [controller, element] of Object.entries(targets)) {
+        try {
+            const response = await AtendeLabApi.get(controller, 'listar');
+            element.textContent = AtendeLabApi.toList(response).length;
+        } catch (error) {
+            element.textContent = '!';
+            element.title = error.message;
+        }
+    }
+
+    try {
+        const resumo = await AtendeLabApi.get('dashboard', 'resumo');
+        const recentes = resumo.atendimentos_recentes || [];
+        const tbody = document.getElementById('tabelaRecentes');
+
+        if (!recentes.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3">Nenhum atendimento registrado.</td></tr>';
+        } else {
+            tbody.innerHTML = recentes.map(item => `<tr>
+                <td>${AtendeLabApi.escape(item.pessoa_nome)}</td>
+                <td>${AtendeLabApi.escape(item.tipo_nome)}</td>
+                <td>${AtendeLabApi.escape(item.data_atendimento)}</td>
+                <td>${AtendeLabApi.escape(item.status)}</td>
+            </tr>`).join('');
+        }
+    } catch (error) {
+        document.getElementById('tabelaRecentes').innerHTML =
+            `<tr><td colspan="4" class="text-center py-3 text-danger">${AtendeLabApi.escape(error.message)}</td></tr>`;
+    }
+});
+</script>
+
+<?php require __DIR__ . '/../layouts/footer.php'; ?>
